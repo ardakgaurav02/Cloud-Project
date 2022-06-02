@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/14f5446a-731a-4dbb-8c6e-d80cf4c9694c/resourceGroups/appsvc_linux_centralus/providers/Microsoft.Web/sites/Ardak-webapp",
+    "appService.deploySubpath": "."
+}
