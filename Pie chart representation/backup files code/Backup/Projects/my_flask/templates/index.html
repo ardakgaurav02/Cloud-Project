@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block titile %}
+This is the Index page..!
+{% endblock %}
+
+{% block content%} 
+   
+    <div class="container">
+        <h1>Hello, world!</h1>
+        <br/><br/>
+        <img src="{{ url_for('static', filename ='images/car.jpg')}}"  
+             width="400">
+    </div>
+    
+{% endblock %}    
