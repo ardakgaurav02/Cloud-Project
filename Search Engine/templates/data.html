@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+    <title>ADB Quiz 3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="{{url_for('static', filename = 'css/bootstrap.min.css')}}">
+    <link rel="stylesheet" type="text/css" href="../static/css/add_s_data.css">
+    <link rel="stylesheet" type="text/css" href="../static/fontawsome/css/all.css">
+</head>
+<body>
+<h1><a href="{{ url_for('index') }}">ADB Quiz 3</a></h1>
+<h1>Chinmay Mandale</h1>
+<h1>1001995246</h1>
+    <div class="container">
+
+        <h4>Total count = {{result | length}}</h4>
+
+        <table>
+          <tr>
+            <th>Document</th>
+            <th>Frequency</th>
+          </tr>
+            {% for res in result %}
+          <tr>
+              <td>{{ res.DocumentName }}</td>
+              <td>{{ res.Frequency }}</td>
+
+          </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
