@@ -1,0 +1,164 @@
+from unittest import skip
+from flask import Flask, render_template, request, redirect, url_for, flash
+import os
+from os.path import join, dirname, realpath
+import pandas as pd
+import pymssql 
+import numpy as np
+from azure.storage.blob import BlobClient,generate_blob_sas, BlobSasPermissions,PublicAccess,BlobServiceClient
+import urllib.request
+from datetime import datetime, timedelta
+from azure.storage.blob import generate_container_sas, ContainerSasPermissions  
+from geopy.distance import geodesic
+from numpy.ma import count
+
+app = Flask(__name__)
+app.secret_key = "Hello there"
+
+# enable debugging mode
+app.config["DEBUG"] = True
+
+# Upload folder
+UPLOAD_FOLDER = 'static/files'
+app.config['UPLOAD_FOLDER'] =  UPLOAD_FOLDER
+
+conn = pymssql.connect(
+    server='g-server.database.windows.net',
+    user='gca9216', 
+    password='admin@02', 
+    database='GA-Database')
+
+cursor = conn.cursor()
+
+account_name = "ardakstorage"
+account_key = "IVKqu8RIn05mn3bglS2HDxlmLoYhkAqUARlhTCl24dih0aBxaRTVj/Yj8nLNOijptbknE8b/VlX2+AStnKFCYA=="
+container_name = "ga-container"
+
+def get_img_url_with_container_sas_token(blob_name):
+    container_sas_token = generate_container_sas(
+        account_name=account_name,
+        container_name=container_name,
+        account_key=account_key,
+        permission=ContainerSasPermissions(read=True),
+        expiry=datetime.utcnow() + timedelta(hours=1)
+    )
+    blob_url_with_container_sas_token = f"https://{account_name}.blob.core.windows.net/{container_name}/{blob_name}?{container_sas_token}"
+    return blob_url_with_container_sas_token
+
+def get_img_url_with_blob_sas_token(blob_name):
+    blob_sas_token = generate_blob_sas(
+        account_name=account_name,
+        container_name=container_name,
+        blob_name=blob_name,
+        account_key=account_key,
+        permission=ContainerSasPermissions(read=True),
+        expiry=datetime.utcnow() + timedelta(hours=1)
+    )
+    blob_url_with_blob_sas_token = f"https://{account_name}.blob.core.windows.net/{container_name}/{blob_name}?{blob_sas_token}"
+    return blob_url_with_blob_sas_token
+
+# Root URL
+@app.route('/')
+def index():
+    # image = get_img_url_with_blob_sas_token("Arbor.png")
+    # blob_name=image
+    return render_template('index.html')
+
+@app.route('/highestEQ', methods=['POST', 'GET'])
+def highestEQ():
+    starting = None
+    lat = None
+    long = None
+    result = []
+    magnitude = []
+    finalresult = []
+    mag = None
+    if  request.method == "POST":  
+        lat = request.form['lat']
+        long = request.form['long']
+        destination = (lat, long)
+        query_string = f"SELECT latitude, longitude, place, mag FROM earthquake"
+        cursor.execute(query_string)
+        starting = cursor.fetchall()
+        for n in starting:
+            dist = geodesic(destination, n[:2]).kilometers
+            if dist<500:
+                result.append((n[0],n[1],n[2],n[3],dist))
+                magnitude.append((n[3]))
+        mag = max(magnitude)
+        for m in result:
+            if m[3] == mag:
+                finalresult.append((m[0],m[1],m[2],m[3],m[4]))
+    return render_template('highestEQ.html', name=finalresult)
+    
+
+@app.route('/higestmag', methods=['POST', 'GET'])
+def higestmag():
+    name = None
+    if  request.method == "POST":  
+        user = request.form['user']  
+        query_string = f"SELECT TOP {user} * FROM earthquake ORDER BY mag DESC"
+        cursor.execute(query_string, (user))
+        name = cursor.fetchall()
+    return render_template('higestmag.html', name=name )
+
+@app.route('/recentdata', methods=['POST', 'GET'])
+def recentdata():
+    name = None
+    if  request.method == "POST":  
+        user1 = request.form['user1']
+        user2 = request.form['user2']
+        query_string = f"select count(mag) as range1 from earthquake where updated > '2022-02-09' AND updated < '2022-02-12' AND (mag > '{user1}' and mag <= '{user2}')"
+        cursor.execute(query_string, (user1,user2))
+        name = cursor.fetchall()
+    return render_template('/recentdata.html', name=name )
+
+@app.route('/uploadFiles', methods=['POST', 'GET'])
+def uploadFiles():
+      # get the uploaded file
+    if request.method=="POST":
+        uploaded_file = request.files['file']
+        if uploaded_file.filename != '':
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], uploaded_file.filename)
+            # set the file path
+            uploaded_file.save(file_path)
+            parseCSV(file_path)
+            # save the file
+        return redirect(url_for('uploadFiles'))
+    return render_template('uploadFiles.html')
+    
+def parseCSV(filePath):
+    if  filePath.endswith('.png'):
+        path = 'static/files'
+        file_names = os.listdir(path)
+        account_name = 'ardakstorage'
+        account_key = 'IVKqu8RIn05mn3bglS2HDxlmLoYhkAqUARlhTCl24dih0aBxaRTVj/Yj8nLNOijptbknE8b/VlX2+AStnKFCYA=='
+        container_name = 'ga-container'
+        connection_string = 'DefaultEndpointsProtocol=https;AccountName=ardakstorage;AccountKey=IVKqu8RIn05mn3bglS2HDxlmLoYhkAqUARlhTCl24dih0aBxaRTVj/Yj8nLNOijptbknE8b/VlX2+AStnKFCYA==;EndpointSuffix=core.windows.net'
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        container_client = blob_service_client.get_container_client(container_name)
+
+        for file_name in file_names:
+            if file_name.endswith('.png'):
+                blob_name = file_name
+                file_path = path+'/'+file_name
+                blob_client = container_client.get_blob_client(blob_name)
+                with open(file_path, "rb") as data:
+                    blob_client.upload_blob(data, blob_type="BlockBlob", overwrite=True)  
+
+    elif filePath.endswith('.csv'):
+        col_names = ['time','latitude','longitude','depth','mag','magType','nst','gap','dmin','rms','net','id','updated','place','type','horizontalError','depthError','magError','magNst','status','locationSource','magSource']
+        csvData = pd.read_csv(filePath,names=col_names, header=None)
+        csvData = csvData.replace(np.nan,None)
+        for i,row in csvData.iterrows():
+            sql = "INSERT INTO earthquake (time, latitude, longitude, depth, mag, magType, nst,	gap, dmin, rms, net, id, updated, place, type, horizontalError, depthError, magError, magNst, status, locationSource, magSource) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            value = (row['time'],row['latitude'],row['longitude'],row['depth'],row['mag'],row['magType'],row['nst'],row['gap'],row['dmin'],row['rms'],row['net'],row['id'],row['updated'],row['place'],row['type'],row['horizontalError'],row['depthError'],row['magError'],row['magNst'],row['status'],row['locationSource'],row['magSource'])
+            app.logger.info(sql%(value))
+            cursor.execute(sql, value)
+            conn.commit()
+            
+    else:
+        skip
+if (__name__ == "__main__"):
+     app.run()
+
