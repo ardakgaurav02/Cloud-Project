@@ -1,0 +1,13 @@
+Reference Document:
+
+Get location coordinates | Geocoding | Python |
+https://www.youtube.com/watch?v=teyBLfWxJLs
+
+Learn Flask for Python - Full Tutorial
+https://www.youtube.com/watch?v=Z1RJmh_OqeA&t=2477s
+
+Uploading files with Flask - Python on the web
+https://www.youtube.com/watch?v=6WruncSoCdI&t=130s
+
+Flask Tutorial - 5. Querying the Database
+https://www.youtube.com/watch?v=VSzNYfDQp8Y
